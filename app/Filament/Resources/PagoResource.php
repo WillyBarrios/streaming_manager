@@ -83,6 +83,12 @@ class PagoResource extends Resource
                     ->sortable()
                     ->badge() // Se ve bonito en burbuja
                     ->color('gray'),
+                Tables\Columns\ImageColumn::make('comprobante_url')
+                    ->label('Voucher')
+                    ->visibility('public')
+                    // Si le dan clic a la miniatura, abre la foto original en otra pestaña
+                    ->url(fn ($record) => $record->comprobante_url ? \Illuminate\Support\Facades\Storage::url($record->comprobante_url) : null)
+                    ->openUrlInNewTab(),
 
                 // Columna 3: Monto
                 Tables\Columns\TextColumn::make('monto')
