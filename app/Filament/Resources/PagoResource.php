@@ -16,7 +16,7 @@ class PagoResource extends Resource
     protected static ?string $model = Pago::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-    
+
     protected static ?string $navigationLabel = 'Historial de Pagos';
     protected static ?string $pluralModelLabel = 'Pagos';
 
@@ -55,7 +55,12 @@ class PagoResource extends Resource
                     ->label('Comprobante (Foto)')
                     ->image()
                     ->directory('comprobantes')
-                    ->visibility('public'),
+                    ->visibility('public')
+                    ->openable()      // Permite dar clic para abrir en pestaña nueva
+                    ->downloadable()  // Permite descargar la imagen original
+                    // -------------------------------
+                    ->columnSpanFull(), // Opcional: Para que ocupe todo el ancho
+
             ]);
     }
 
@@ -91,7 +96,7 @@ class PagoResource extends Resource
                     ->dateTime('d M, Y H:i')
                     ->sortable()
                     ->label('Fecha'),
-                
+
                 // Columna 5: Método
                 Tables\Columns\TextColumn::make('metodo_pago')
                     ->icon('heroicon-m-credit-card'),
