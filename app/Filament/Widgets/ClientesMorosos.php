@@ -12,18 +12,17 @@ class ClientesMorosos extends BaseWidget
     // Hacemos que ocupe todo el ancho de la pantalla
     protected int | string | array $columnSpan = 'full';
 
-    protected static ?int $sort = 2; 
+    protected static ?int $sort = 2;
 
     protected function getTableHeading(): string
     {
         return '🚨 Clientes con Pagos Atrasados';
     }
 
-    public function table(Table $table): Table
+public function table(Table $table): Table
     {
         return $table
             ->query(
-                // CORRECCIÓN: Usamos query() explícitamente y luego los filtros
                 Suscripcion::query()
                     ->with(['cliente', 'perfil.cuenta.servicio'])
                     ->where('estado', 'Activo')
@@ -32,44 +31,62 @@ class ClientesMorosos extends BaseWidget
             ->columns([
                 Tables\Columns\TextColumn::make('cliente.nombre')
                     ->label('Cliente')
-                    ->searchable()
                     ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('perfil.nombre_completo')
-                    ->label('Servicio / Perfil')
-                    ->limit(30),
+                    ->label('Servicio')
+                    ->limit(20),
 
                 Tables\Columns\TextColumn::make('fecha_proximo_vencimiento')
-                    ->label('Venció el')
+                    ->label('Venció')
                     ->date('d M, Y')
-                    ->color('danger'), 
-
-                Tables\Columns\TextColumn::make('precio_pactado')
-                    ->label('Debe')
-                    ->money('GTQ')
-                    ->weight('bold'),
-
-                // Calculamos días de retraso
-                Tables\Columns\TextColumn::make('dias_retraso')
-                    ->label('Días Atraso')
-                    ->state(fn (Suscripcion $record) => round(now()->diffInDays($record->fecha_proximo_vencimiento)))
-                    ->badge()
                     ->color('danger'),
+
+                // COLUMNA 1: Meses de Atraso (Calculado)
+                Tables\Columns\TextColumn::make('meses_atraso')
+                    ->label('Meses Pend.')
+                    ->state(function (Suscripcion $record) {
+                        // Calculamos cuántos meses han pasado desde el vencimiento hasta hoy
+                        // Le sumamos 1 porque si venció en septiembre, septiembre cuenta como deuda
+                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
+                        return abs($meses) + 1;
+                    })
+                    ->badge()
+                    ->color('danger')
+                    ->alignCenter(),
+
+                // COLUMNA 2: Deuda Total (Precio * Meses)
+                Tables\Columns\TextColumn::make('deuda_total')
+                    ->label('Total a Pagar')
+                    ->money('GTQ')
+                    ->weight('black') // Letra bien gruesa
+                    ->color('danger')
+                    ->state(function (Suscripcion $record) {
+                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
+                        $totalMeses = abs($meses) + 1;
+
+                        return $record->precio_pactado * $totalMeses;
+                    }),
             ])
             ->actions([
-                // Botón de WhatsApp
+                // BOTÓN WHATSAPP INTELIGENTE (Cobra el total acumulado)
                 Tables\Actions\Action::make('whatsapp')
-                    ->label('Cobrar')
+                    ->label('Cobrar Todo')
                     ->icon('heroicon-m-chat-bubble-left-right')
                     ->color('success')
-                    ->url(fn (Suscripcion $record) => 
-                        'https://wa.me/' . $record->cliente->telefono . '?text=' . urlencode(
-                            "Hola {$record->cliente->nombre}, tu servicio de {$record->perfil->cuenta->servicio->nombre} venció el " . 
-                            $record->fecha_proximo_vencimiento->format('d/m') . ". Son Q.{$record->precio_pactado}. ¿Me ayudas con el pago?"
-                        )
-                    , shouldOpenInNewTab: true),
-                    
-                // Atajo para ir a pagar
+                    ->url(function (Suscripcion $record) {
+                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
+                        $totalMeses = abs($meses) + 1;
+                        $totalDeuda = $record->precio_pactado * $totalMeses;
+
+                        return 'https://wa.me/' . $record->cliente->telefono . '?text=' . urlencode(
+                            "Hola {$record->cliente->nombre}, notamos que tu suscripción de {$record->perfil->cuenta->servicio->nombre} venció el " .
+                            $record->fecha_proximo_vencimiento->format('d/m/Y') . ". " .
+                            "Tienes {$totalMeses} meses pendientes. " .
+                            "El total a pagar para ponerte al día es de Q.{$totalDeuda}. ¿Me confirmas tu pago?"
+                        );
+                    }, shouldOpenInNewTab: true),
+
                 Tables\Actions\Action::make('ir_a_pagar')
                     ->label('Gestionar')
                     ->icon('heroicon-m-arrow-right')
