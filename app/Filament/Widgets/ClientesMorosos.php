@@ -31,7 +31,8 @@ public function table(Table $table): Table
             ->columns([
                 Tables\Columns\TextColumn::make('cliente.nombre')
                     ->label('Cliente')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('perfil.nombre_completo')
                     ->label('Servicio')
@@ -42,48 +43,64 @@ public function table(Table $table): Table
                     ->date('d M, Y')
                     ->color('danger'),
 
-                // COLUMNA 1: Meses de Atraso (Calculado)
+                // CORRECCIÓN 1: Forzamos número entero para que no salgan decimales
                 Tables\Columns\TextColumn::make('meses_atraso')
-                    ->label('Meses Pend.')
+                    ->label('Meses')
                     ->state(function (Suscripcion $record) {
-                        // Calculamos cuántos meses han pasado desde el vencimiento hasta hoy
-                        // Le sumamos 1 porque si venció en septiembre, septiembre cuenta como deuda
-                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
-                        return abs($meses) + 1;
+                        // diffInMonths devuelve entero por defecto, pero por si acaso usamos intval
+                        // abs() es para que salga positivo
+                        // +1 para contar el mes en curso como deuda
+                        return intval(abs(now()->diffInMonths($record->fecha_proximo_vencimiento))) + 1;
                     })
                     ->badge()
                     ->color('danger')
                     ->alignCenter(),
 
-                // COLUMNA 2: Deuda Total (Precio * Meses)
-                Tables\Columns\TextColumn::make('deuda_total')
-                    ->label('Total a Pagar')
+                Tables\Columns\TextColumn::make('deuda_fila')
+                    ->label('Subtotal')
                     ->money('GTQ')
-                    ->weight('black') // Letra bien gruesa
-                    ->color('danger')
                     ->state(function (Suscripcion $record) {
-                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
-                        $totalMeses = abs($meses) + 1;
-
-                        return $record->precio_pactado * $totalMeses;
+                        $meses = intval(abs(now()->diffInMonths($record->fecha_proximo_vencimiento))) + 1;
+                        return $record->precio_pactado * $meses;
                     }),
             ])
             ->actions([
-                // BOTÓN WHATSAPP INTELIGENTE (Cobra el total acumulado)
+                // CORRECCIÓN 2: Botón de WhatsApp con "Deuda Global"
                 Tables\Actions\Action::make('whatsapp')
                     ->label('Cobrar Todo')
                     ->icon('heroicon-m-chat-bubble-left-right')
                     ->color('success')
                     ->url(function (Suscripcion $record) {
-                        $meses = now()->diffInMonths($record->fecha_proximo_vencimiento);
-                        $totalMeses = abs($meses) + 1;
-                        $totalDeuda = $record->precio_pactado * $totalMeses;
+                        // 1. Identificamos al cliente
+                        $clienteId = $record->cliente_id;
 
+                        // 2. Buscamos TODAS las suscripciones vencidas de ESTE cliente
+                        $todasLasDeudas = Suscripcion::where('cliente_id', $clienteId)
+                            ->where('estado', 'Activo')
+                            ->where('fecha_proximo_vencimiento', '<', now())
+                            ->get();
+
+                        // 3. Sumamos el total global
+                        $granTotal = 0;
+                        $serviciosLista = [];
+
+                        foreach ($todasLasDeudas as $deuda) {
+                            $meses = intval(abs(now()->diffInMonths($deuda->fecha_proximo_vencimiento))) + 1;
+                            $monto = $deuda->precio_pactado * $meses;
+
+                            $granTotal += $monto;
+                            // Guardamos nombre del servicio para el mensaje (opcional)
+                            $serviciosLista[] = $deuda->perfil->cuenta->servicio->nombre;
+                        }
+
+                        // Quitamos duplicados de nombres de servicios por si tiene 2 de Netflix
+                        $nombresServicios = implode(', ', array_unique($serviciosLista));
+
+                        // 4. Armamos el mensaje final
                         return 'https://wa.me/' . $record->cliente->telefono . '?text=' . urlencode(
-                            "Hola {$record->cliente->nombre}, notamos que tu suscripción de {$record->perfil->cuenta->servicio->nombre} venció el " .
-                            $record->fecha_proximo_vencimiento->format('d/m/Y') . ". " .
-                            "Tienes {$totalMeses} meses pendientes. " .
-                            "El total a pagar para ponerte al día es de Q.{$totalDeuda}. ¿Me confirmas tu pago?"
+                            "Hola {$record->cliente->nombre}, tienes pagos pendientes en tus servicios: ({$nombresServicios}). " .
+                            "El saldo TOTAL acumulado a la fecha es de Q.{$granTotal}. " .
+                            "¿Podrías apoyarme con el pago?"
                         );
                     }, shouldOpenInNewTab: true),
 
