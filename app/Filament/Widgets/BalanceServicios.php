@@ -9,12 +9,14 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
 
 class BalanceServicios extends BaseWidget
 {
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
-    
+
     protected function getTableHeading(): string
     {
         return '💰 Balance Financiero (Mes Actual)';
@@ -79,7 +81,7 @@ class BalanceServicios extends BaseWidget
                     ->weight('bold')
                     ->state(function ($record) {
                         $gasto = $record->precio_costo * $record->cuentas_count;
-                        
+
                         $ingreso = Pago::whereHas('suscripcion.perfil.cuenta', function($q) use ($record){
                             $q->where('servicio_id', $record->id);
                         })
@@ -97,15 +99,26 @@ class BalanceServicios extends BaseWidget
                             ->using(function ($query) {
                                 // 1. Calcular Gasto Total usando cuentas_count
                                 $gastoTotal = $query->get()->sum(fn ($r) => $r->precio_costo * $r->cuentas_count);
-                                
+
                                 // 2. Calcular Ingreso Total Global
                                 $ingresoTotal = Pago::whereMonth('fecha_pago', Carbon::now()->month)
                                     ->whereYear('fecha_pago', Carbon::now()->year)
                                     ->sum('monto');
-                                
+
                                 return $ingresoTotal - $gastoTotal;
                             })
                     ),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->label('Exportar Balance')
+                    ->icon('heroicon-o-document-chart-bar')
+                    ->color('success')
+                    ->exports([
+                        ExcelExport::make()
+                            ->fromTable()
+                            ->withFilename('Balance_General_' . date('Y-m-d')),
+                    ]),
             ])
             ->paginated(false);
     }
