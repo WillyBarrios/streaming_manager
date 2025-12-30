@@ -17,7 +17,7 @@ class SuscripcionResource extends Resource
     protected static ?string $model = Suscripcion::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
-    
+
     protected static ?string $navigationLabel = 'Suscripciones';
     protected static ?string $modelLabel = 'Suscripción';
     protected static ?string $pluralModelLabel = 'Suscripciones';
@@ -47,7 +47,7 @@ class SuscripcionResource extends Resource
                     ->required()
                     ->reactive()
                     ->helperText('Solo aparecen perfiles marcados como Disponibles'),
-                
+
                 Forms\Components\TextInput::make('precio_pactado')
                     ->label('Precio Pactado')
                     ->prefix('Q')
@@ -120,9 +120,9 @@ class SuscripcionResource extends Resource
             ->actions([
                 // Agrupamos las acciones en un menú desplegable (los 3 puntitos)
                 Tables\Actions\ActionGroup::make([
-                    
+
                     Tables\Actions\EditAction::make(),
-                    
+
                     // --- AQUÍ ESTÁ EL BOTÓN DE RENOVAR ---
                     Tables\Actions\Action::make('renovar')
                         ->label('Renovar / Pagar')
@@ -139,7 +139,7 @@ class SuscripcionResource extends Resource
                                     ->required()
                                     ->prefix('Q')
                                     ->numeric(),
-                                
+
                                 Forms\Components\Select::make('meses')
                                     ->label('Meses a pagar')
                                     ->default(1)
@@ -151,7 +151,7 @@ class SuscripcionResource extends Resource
                                         12 => '1 Año',
                                     ])
                                     ->required(),
-                                    
+
                                 Forms\Components\Select::make('metodo_pago')
                                     ->label('Método')
                                     ->options([
@@ -171,12 +171,11 @@ class SuscripcionResource extends Resource
                                 'metodo_pago' => $data['metodo_pago'],
                                 'fecha_pago' => now(),
                             ]);
-
+                            $mesesAPagar = (int) $data['meses'];
                             // 2. Calcular nueva fecha
-                            $nuevaFecha = $record->fecha_proximo_vencimiento < now() 
-                                ? now()->addMonths($data['meses']) 
-                                : \Carbon\Carbon::parse($record->fecha_proximo_vencimiento)->addMonths($data['meses']);
-
+                            $nuevaFecha = $record->fecha_proximo_vencimiento < now()
+                                ? now()->addMonths($mesesAPagar)
+                                : \Carbon\Carbon::parse($record->fecha_proximo_vencimiento)->addMonths($mesesAPagar);
                             // 3. Actualizar Suscripción
                             $record->update([
                                 'fecha_proximo_vencimiento' => $nuevaFecha,
@@ -199,7 +198,7 @@ class SuscripcionResource extends Resource
                 ]),
             ]);
     }
-    
+
     public static function getPages(): array
     {
         return [
