@@ -89,14 +89,26 @@ class CuentaResource extends Resource
                 ->sortable()
                 ->searchable()
                 ->weight('bold'), // Pone el texto en negrita
-                
+
             // 2. Correo de la cuenta
-            Tables\Columns\TextColumn::make('correo_acceso')
+            // 2. Correo de la cuenta
+Tables\Columns\TextColumn::make('correo_acceso') // O como se llame tu campo en la BD
                 ->label('Correo / Usuario')
-                ->searchable()
-                ->copyable() // ¡Truco! Permite copiar el correo con un clic
-                ->icon('heroicon-m-envelope'),
-                
+                ->icon('heroicon-m-envelope')
+                ->copyable() // <--- Esto agrega el botón de copiar
+                ->copyMessage('¡Correo copiado!') // Mensaje de éxito
+                ->copyMessageDuration(1500),
+
+            //  COLUMNA DE CONTRASEÑA (Oculta y con botón de copiar)
+                Tables\Columns\TextColumn::make('contrasena') // Asegúrate que este sea el nombre real en tu BD
+                ->label('Contraseña')
+                ->formatStateUsing(fn () => '••••••••') // <--- Esto hace que se vean puntos visualmente
+                ->copyable() // <--- Esto habilita el copiado
+                ->copyableState(fn ($state) => $state) // <--- IMPORTANTE: Esto asegura que se copie la contraseña REAL, no los puntos
+                ->copyMessage('¡Contraseña copiada!')
+                ->icon('heroicon-o-lock-closed'), // Icono decorativo
+
+
             // 3. Fecha de Corte (Formato bonito)
             Tables\Columns\TextColumn::make('fecha_corte_proveedor')
                 ->label('Próximo Pago')
