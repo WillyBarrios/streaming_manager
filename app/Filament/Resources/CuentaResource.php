@@ -90,23 +90,23 @@ class CuentaResource extends Resource
                 ->searchable()
                 ->weight('bold'), // Pone el texto en negrita
 
-            // 2. Correo de la cuenta
-            // 2. Correo de la cuenta
-Tables\Columns\TextColumn::make('correo_acceso') // O como se llame tu campo en la BD
+// 2. Correo de la cuenta
+            Tables\Columns\TextColumn::make('correo_acceso')
                 ->label('Correo / Usuario')
                 ->icon('heroicon-m-envelope')
-                ->copyable() // <--- Esto agrega el botón de copiar
-                ->copyMessage('¡Correo copiado!') // Mensaje de éxito
+                ->copyable()
+                ->copyableState(fn ($record) => $record->correo_acceso) // Forzamos el valor real
+                ->copyMessage('¡Correo copiado!')
                 ->copyMessageDuration(1500),
 
-            //  COLUMNA DE CONTRASEÑA (Oculta y con botón de copiar)
-                Tables\Columns\TextColumn::make('contrasena') // Asegúrate que este sea el nombre real en tu BD
+            // 3. COLUMNA DE CONTRASEÑA
+            Tables\Columns\TextColumn::make('contrasena')
                 ->label('Contraseña')
-                ->formatStateUsing(fn () => '••••••••') // <--- Esto hace que se vean puntos visualmente
-                ->copyable() // <--- Esto habilita el copiado
-                ->copyableState(fn ($state) => $state) // <--- IMPORTANTE: Esto asegura que se copie la contraseña REAL, no los puntos
+                ->formatStateUsing(fn () => '••••••••')
+                ->copyable()
+                ->copyableState(fn ($record) => $record->contrasena) // Extrae de la BD, ignora los puntitos
                 ->copyMessage('¡Contraseña copiada!')
-                ->icon('heroicon-o-lock-closed'), // Icono decorativo
+                ->icon('heroicon-o-lock-closed'),
 
 
             // 3. Fecha de Corte (Formato bonito)
