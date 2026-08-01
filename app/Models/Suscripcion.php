@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Suscripcion extends Model
 {
@@ -11,10 +11,11 @@ class Suscripcion extends Model
 
     // 1. SOLUCIÓN DEL ERROR
     protected $table = 'suscripciones';
-    
+
     protected $guarded = [];
 
     protected $casts = [
+        'precio_pactado' => 'decimal:2',
         'fecha_inicio' => 'date',
         'fecha_proximo_vencimiento' => 'date',
     ];

@@ -1,0 +1,113 @@
+scalar Date @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\Date")
+scalar DateTime @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTime")
+
+enum EstadoCuenta {
+    ACTIVA @enum(value: "Activa")
+    SUSPENDIDA @enum(value: "Suspendida")
+    CAIDA @enum(value: "Caida")
+}
+
+enum EstadoSuscripcionCliente {
+    ACTIVO @enum(value: "Activo")
+    POR_VENCER @enum(value: "Por Vencer")
+    VENCIDO @enum(value: "Vencido")
+    CANCELADO @enum(value: "Cancelado")
+}
+
+enum MetodoPago {
+    EFECTIVO @enum(value: "Efectivo")
+    TRANSFERENCIA @enum(value: "Transferencia")
+    DEPOSITO @enum(value: "Deposito")
+}
+
+enum TipoMovimiento {
+    INGRESO @enum(value: "Ingreso")
+}
+
+type User {
+    id: ID!
+    name: String!
+    email: String!
+}
+
+"Una cuenta activa pagada a un proveedor de streaming."
+type ProviderSubscription {
+    id: ID!
+    nombre_servicio: String!
+    costo_mensual: String!
+    fecha_proximo_pago: Date!
+    estado: EstadoCuenta!
+}
+
+type Payment {
+    id: ID!
+    suscripcion_id: ID!
+    cliente_id: ID!
+    monto: String!
+    metodo_pago: MetodoPago!
+    fecha_pago: DateTime!
+    tipo_movimiento: TipoMovimiento!
+}
+
+type ClientSubscription {
+    id: ID!
+    cliente_id: ID!
+    perfil_id: ID!
+    precio_pactado: String!
+    fecha_inicio: Date!
+    fecha_proximo_vencimiento: Date!
+    estado: EstadoSuscripcionCliente!
+}
+
+type BudgetSummary {
+    periodo: String!
+    gastos_suscripciones: String!
+    ingresos_clientes: String!
+    saldo: String!
+}
+
+type Query @guard(with: ["sanctum"]) {
+    me: User! @auth(guards: ["sanctum"])
+
+    suscripcionesActivas: [ProviderSubscription!]!
+        @all(model: "App\\Models\\Cuenta", scopes: ["active"])
+
+    pagosRecientes: [Payment!]!
+        @paginate(
+            model: "App\\Models\\Pago"
+            scopes: ["recent"]
+            defaultCount: 20
+            maxCount: 100
+        )
+
+    resumenPresupuesto: BudgetSummary!
+        @field(resolver: "App\\GraphQL\\Queries\\ResumenPresupuesto")
+}
+
+input RegistrarPagoInput {
+    suscripcion_id: ID!
+        @rules(apply: ["required", "exists:suscripciones,id"])
+
+    monto: String!
+        @rules(apply: ["required", "numeric", "decimal:0,2", "min:0.01"])
+
+    metodo_pago: MetodoPago!
+    fecha_pago: DateTime
+}
+
+input ActualizarSuscripcionInput {
+    id: ID!
+        @rules(apply: ["required", "exists:suscripciones,id"])
+
+    estado: EstadoSuscripcionCliente!
+}
+
+type Mutation @guard(with: ["sanctum"]) {
+    registrarPago(input: RegistrarPagoInput! @spread): Payment!
+        @create(model: "App\\Models\\Pago")
+
+    actualizarSuscripcion(
+        input: ActualizarSuscripcionInput! @spread
+    ): ClientSubscription
+        @update(model: "App\\Models\\Suscripcion")
+}

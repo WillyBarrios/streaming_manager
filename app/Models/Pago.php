@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,11 +12,38 @@ class Pago extends Model
 
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return [
+            'monto' => 'decimal:2',
+            'fecha_pago' => 'datetime',
+        ];
+    }
+
     // ESTA ES LA PIEZA QUE FALTA
     public function suscripcion()
     {
         return $this->belongsTo(Suscripcion::class);
     }
+
+    public function scopeRecent(Builder $query): Builder
+    {
+        return $query
+            ->with('suscripcion')
+            ->orderByDesc('fecha_pago')
+            ->orderByDesc('id');
+    }
+
+    public function getClienteIdAttribute(): ?int
+    {
+        return $this->suscripcion?->cliente_id;
+    }
+
+    public function getTipoMovimientoAttribute(): string
+    {
+        return 'Ingreso';
+    }
+
     protected static function booted(): void
     {
         static::created(function (Pago $pago) {
